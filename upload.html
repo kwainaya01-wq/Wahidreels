@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Short | Wahid Reels</title>
+    <style>
+        body { background:#000; color:white; font-family:sans-serif; text-align:center; padding:20px; }
+        .box { background:#111; padding:30px; border-radius:20px; border:1px solid #00f2ea; margin-top:50px; }
+        input, textarea { width:100%; padding:12px; margin:10px 0; border-radius:10px; border:none; background:#222; color:white; }
+        button { width:100%; padding:15px; background:#00f2ea; color:black; border:none; border-radius:10px; font-weight:bold; cursor:pointer; margin-top:10px; }
+        #status { margin-top:15px; color:#00f2ea; font-size:14px; }
+        .nav-bar { position:fixed; bottom:0; left:0; width:100%; height:65px; background:#000; display:flex; justify-content:space-around; align-items:center; border-top:1px solid #222; }
+        .nav-item { color:white; text-decoration:none; font-size:24px; }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h2>Upload Reel 🎥</h2>
+        <input type="file" id="v-file" accept="video/*">
+        <textarea id="v-caption" placeholder="Write a caption..."></textarea>
+        <button id="up-btn">Upload Now</button>
+        <div id="status"></div>
+    </div>
+
+    <div class="nav-bar">
+        <a href="index.html" class="nav-item">🏠</a>
+        <a href="#" class="nav-item" style="color:#00f2ea">➕</a>
+        <div onclick="location.href='profile.html?id='+localStorage.getItem('wahid_user_id')" class="nav-item">👤</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = { 
+            apiKey: "AIzaSyBjnKcmC5ix9A97-mJtX6_I2X5FWOv8uSw", 
+            authDomain: "wahidreels-pro.firebaseapp.com", 
+            projectId: "wahidreels-pro", 
+            storageBucket: "wahidreels-pro.firebasestorage.app", 
+            messagingSenderId: "706965907010", 
+            appId: "1:706965907010:web:c4aa2f3b807ff7b002efdb" 
+        };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        document.getElementById('up-btn').onclick = async () => {
+            const file = document.getElementById('v-file').files[0];
+            const caption = document.getElementById('v-caption').value;
+            const status = document.getElementById('status');
+            
+            const myId = localStorage.getItem("wahid_user_id");
+            const myName = localStorage.getItem("wahid_user_name");
+
+            if(!file || !myId) return alert("Pehle Video select karein aur Login check karein!");
+
+            status.innerText = "Uploading to Cloudinary...";
+
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('upload_preset', 'wahid_preset'); 
+
+            try {
+                // ✅ Yahan maine aapka sahi Cloud Name 'dun7kjubd' daal diya hai
+                const res = await fetch("https://api.cloudinary.com/v1_1/dun7kjubd/video/upload", {
+                    method: "POST",
+                    body: formData
+                });
+                
+                const data = await res.json();
+                
+                if(data.error) {
+                    alert("Cloudinary Error: " + data.error.message);
+                    status.innerText = "Upload Failed! ❌";
+                    return;
+                }
+
+                const videoUrl = data.secure_url;
+
+                status.innerText = "Saving to Database...";
+                await addDoc(collection(db, "reels_data"), {
+                    videoUrl: videoUrl,
+                    caption: caption,
+                    userId: myId, 
+                    userName: myName,
+                    likes: [],
+                    comments: [],
+                    createdAt: serverTimestamp()
+                });
+
+                status.innerText = "Upload Success! 🎉";
+                setTimeout(() => { window.location.href = "index.html"; }, 2000);
+
+            } catch (err) {
+                console.error(err);
+                status.innerText = "Upload Failed! ❌";
+            }
+        };
+    </script>
+</body>
+</html>

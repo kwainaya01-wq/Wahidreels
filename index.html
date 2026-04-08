@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wahid Reels Pro - Final</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #000; color: white; font-family: sans-serif; overflow: hidden; }
+        .reels-container { height: 100vh; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; }
+        .reels-container::-webkit-scrollbar { display: none; }
+        .reel { height: 100vh; width: 100vw; scroll-snap-align: start; position: relative; display: flex; align-items: center; justify-content: center; background: #000; }
+        video { width: 100%; height: 100vh; object-fit: contain; cursor: pointer; }
+        
+        /* Side Bar (Like/Comment) */
+        .side-bar { position: absolute; right: 15px; bottom: 150px; display: flex; flex-direction: column; gap: 25px; z-index: 100; align-items: center; }
+        .icon-btn { font-size: 30px; cursor: pointer; text-align: center; }
+        .icon-btn span { font-size: 14px; display: block; margin-top: 4px; font-weight: bold; }
+        .liked { color: #ff0050; }
+
+        /* Bottom Nav */
+        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 65px; background: rgba(0,0,0,0.95); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #333; z-index: 1000; }
+        .nav-item { color: white; text-decoration: none; font-size: 24px; cursor: pointer; }
+        .nav-item.active { color: #00f2ea; }
+
+        .video-info { position: absolute; left: 15px; bottom: 90px; z-index: 10; text-shadow: 2px 2px 5px #000; }
+        .user-name { font-weight: bold; color: #00f2ea; font-size: 18px; margin-bottom: 5px; }
+
+        /* Comment Modal */
+        #comment-modal { position: fixed; bottom: -100%; left: 0; width: 100%; height: 60%; background: #1e1e1e; border-top-left-radius: 20px; border-top-right-radius: 20px; z-index: 2000; transition: 0.4s; padding: 20px; display: flex; flex-direction: column; }
+        #comment-modal.open { bottom: 0; }
+        .comment-list { flex: 1; overflow-y: auto; margin-bottom: 15px; }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; z-index: 1500; }
+    </style>
+</head>
+<body>
+
+    <div class="reels-container" id="reels-wrapper"></div>
+    <div class="overlay" id="overlay" onclick="window.closeComments()"></div>
+
+    <div id="comment-modal">
+        <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><strong>Comments</strong><span onclick="window.closeComments()">✖</span></div>
+        <div class="comment-list" id="comment-list"></div>
+        <div style="display:flex; gap:10px;">
+            <input type="text" id="c-input" placeholder="Comment..." style="flex:1; padding:10px; border-radius:20px; border:none; background:#333; color:white;">
+            <button onclick="window.postComment()" style="background:#00f2ea; border:none; padding:0 15px; border-radius:20px; font-weight:bold;">Post</button>
+        </div>
+    </div>
+
+    <div class="nav-bar">
+        <a href="index.html" class="nav-item active">🏠</a>
+        <a href="upload.html" class="nav-item">➕</a>
+        <div onclick="goToMyProfile()" class="nav-item">👤</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyBjnKcmC5ix9A97-mJtX6_I2X5FWOv8uSw", authDomain: "wahidreels-pro.firebaseapp.com", projectId: "wahidreels-pro", storageBucket: "wahidreels-pro.firebasestorage.app", messagingSenderId: "706965907010", appId: "1:706965907010:web:c4aa2f3b807ff7b002efdb" };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let myId = localStorage.getItem("wahid_user_id");
+        let myName = localStorage.getItem("wahid_user_name");
+        let currentReelId = null;
+        window.isGlobalMuted = true;
+
+        // 🔇 Sound Fix (Intersection Observer)
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                const video = entry.target.querySelector('video');
+                if (entry.isIntersecting) {
+                    video.muted = window.isGlobalMuted;
+                    video.play().catch(() => {});
+                } else {
+                    video.pause();
+                    video.currentTime = 0; // Sound turant stop karne ke liye
+                }
+            });
+        }, { threshold: 0.8 });
+
+        window.toggleSound = (v) => {
+            v.muted = !v.muted;
+            window.isGlobalMuted = v.muted;
+        };
+
+        const q = query(collection(db, "reels_data"), orderBy("createdAt", "desc"));
+        onSnapshot(q, (snapshot) => {
+            const wrapper = document.getElementById('reels-wrapper');
+            wrapper.innerHTML = "";
+            snapshot.forEach(reelDoc => {
+                const data = reelDoc.data();
+                const id = reelDoc.id;
+                const likes = data.likes || [];
+                const comments = data.comments || [];
+                const isLiked = myId && likes.includes(myId);
+
+                const reelDiv = document.createElement('div');
+                reelDiv.className = 'reel';
+                reelDiv.innerHTML = `
+                    <video loop muted playsinline onclick="window.toggleSound(this)">
+                        <source src="${data.videoUrl}" type="video/mp4">
+                    </video>
+                    <div class="side-bar">
+                        <div class="icon-btn ${isLiked ? 'liked' : ''}" onclick="window.handleLike('${id}', ${isLiked})">
+                            ${isLiked ? '❤️' : '🤍'} <span>${likes.length}</span>
+                        </div>
+                        <div class="icon-btn" onclick="window.openComments('${id}')">💬 <span>${comments.length}</span></div>
+                    </div>
+                    <div class="video-info">
+                        <div class="user-name" onclick="location.href='profile.html?id=${data.userId}'">@${data.userName || 'User'}</div>
+                        <p>${data.caption || ''}</p>
+                    </div>`;
+                wrapper.appendChild(reelDiv);
+                observer.observe(reelDiv);
+            });
+        });
+
+        window.handleLike = async (id, alreadyLiked) => {
+            if (!myId) return alert("Pehle login kijiye!");
+            await updateDoc(doc(db, "reels_data", id), {
+                likes: alreadyLiked ? arrayRemove(myId) : arrayUnion(myId)
+            });
+        };
+
+        window.openComments = async (id) => {
+            currentReelId = id;
+            document.getElementById('comment-modal').classList.add('open');
+            document.getElementById('overlay').style.display = 'block';
+            const list = document.getElementById('comment-list');
+            list.innerHTML = "Loading...";
+            const snap = await getDoc(doc(db, "reels_data", id));
+            const comments = snap.data().comments || [];
+            list.innerHTML = "";
+            comments.forEach(c => { list.innerHTML += `<div style="margin-bottom:10px;"><b>${c.user}:</b> ${c.text}</div>`; });
+        };
+
+        window.postComment = async () => {
+            const input = document.getElementById('c-input');
+            if(!input.value || !myId) return alert("Pehle kuch likhein!");
+            await updateDoc(doc(db, "reels_data", currentReelId), {
+                comments: arrayUnion({ user: myName, text: input.value, time: Date.now() })
+            });
+            input.value = "";
+            window.openComments(currentReelId);
+        };
+
+        window.closeComments = () => {
+            document.getElementById('comment-modal').classList.remove('open');
+            document.getElementById('overlay').style.display = 'none';
+        };
+
+        window.goToMyProfile = () => {
+            if(myId) window.location.href = "profile.html?id=" + myId;
+            else window.location.href = "auth.html";
+        };
+    </script>
+</body>
+</html>

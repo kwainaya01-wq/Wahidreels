@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | Wahid Reels</title>
+    <style>
+        body { background: #000; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .card { background: #111; padding: 30px; border-radius: 20px; text-align: center; width: 85%; border: 1px solid #00f2ea; }
+        input { width: 100%; padding: 15px; margin: 20px 0; border-radius: 10px; border: none; background: #222; color: white; text-align: center; font-size: 16px; }
+        button { width: 100%; padding: 15px; border-radius: 10px; border: none; background: #00f2ea; color: black; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>Wahid Reels Pro 🎥</h2>
+        <p>Apna Naam Likhiye</p>
+        <input type="text" id="u-name" placeholder="Apna Name Dalein">
+        <button id="login-btn">Start App</button>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+        const firebaseConfig = { apiKey: "AIzaSyBjnKcmC5ix9A97-mJtX6_I2X5FWOv8uSw", authDomain: "wahidreels-pro.firebaseapp.com", projectId: "wahidreels-pro", storageBucket: "wahidreels-pro.firebasestorage.app", messagingSenderId: "706965907010", appId: "1:706965907010:web:c4aa2f3b807ff7b002efdb" };
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        document.getElementById('login-btn').onclick = async () => {
+            const name = document.getElementById('u-name').value;
+            if(!name) return alert("Naam likhiye!");
+            const randomID = "user_" + Date.now();
+            localStorage.setItem("wahid_user_id", randomID);
+            localStorage.setItem("wahid_user_name", name);
+            await setDoc(doc(db, "users", randomID), { displayName: name, uid: randomID, bio: "Mera Profile!", photo: "" });
+            window.location.href = "index.html";
+        };
+    </script>
+</body>
+</html>
