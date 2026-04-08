@@ -1,160 +1,127 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wahid Reels Pro - Final</title>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wahid Reels | Sound & Smooth Fix</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #000; color: white; font-family: sans-serif; overflow: hidden; }
-        .reels-container { height: 100vh; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; }
-        .reels-container::-webkit-scrollbar { display: none; }
-        .reel { height: 100vh; width: 100vw; scroll-snap-align: start; position: relative; display: flex; align-items: center; justify-content: center; background: #000; }
-        video { width: 100%; height: 100vh; object-fit: contain; cursor: pointer; }
+        body { background:#000; color:white; margin:0; font-family:sans-serif; overflow:hidden; }
+        /* Smooth Snap Scroll Fix */
+        .feed { height:100vh; scroll-snap-type: y mandatory; overflow-y: scroll; scrollbar-width: none; -ms-overflow-style: none; }
+        .feed::-webkit-scrollbar { display: none; }
         
-        /* Side Bar (Like/Comment) */
-        .side-bar { position: absolute; right: 15px; bottom: 150px; display: flex; flex-direction: column; gap: 25px; z-index: 100; align-items: center; }
-        .icon-btn { font-size: 30px; cursor: pointer; text-align: center; }
-        .icon-btn span { font-size: 14px; display: block; margin-top: 4px; font-weight: bold; }
-        .liked { color: #ff0050; }
+        .reel { height:100vh; scroll-snap-align: start; scroll-snap-stop: always; position: relative; background:#000; display:flex; align-items:center; }
+        video { width:100%; height:100vh; object-fit: cover; }
+        
+        .side-bar { position:absolute; right:15px; bottom:100px; display:flex; flex-direction:column; align-items:center; gap:20px; z-index:10; }
+        .action-btn { background:none; border:none; color:white; font-size:30px; cursor:pointer; text-align:center; text-shadow: 1px 1px 5px #000; }
+        .action-btn span { font-size:12px; display:block; margin-top:5px; }
+        .liked { color: #ff3e3e !important; }
 
-        /* Bottom Nav */
-        .nav-bar { position: fixed; bottom: 0; width: 100%; height: 65px; background: rgba(0,0,0,0.95); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid #333; z-index: 1000; }
-        .nav-item { color: white; text-decoration: none; font-size: 24px; cursor: pointer; }
-        .nav-item.active { color: #00f2ea; }
-
-        .video-info { position: absolute; left: 15px; bottom: 90px; z-index: 10; text-shadow: 2px 2px 5px #000; }
-        .user-name { font-weight: bold; color: #00f2ea; font-size: 18px; margin-bottom: 5px; }
-
-        /* Comment Modal */
-        #comment-modal { position: fixed; bottom: -100%; left: 0; width: 100%; height: 60%; background: #1e1e1e; border-top-left-radius: 20px; border-top-right-radius: 20px; z-index: 2000; transition: 0.4s; padding: 20px; display: flex; flex-direction: column; }
-        #comment-modal.open { bottom: 0; }
-        .comment-list { flex: 1; overflow-y: auto; margin-bottom: 15px; }
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; z-index: 1500; }
+        .overlay { position:absolute; bottom:80px; left:15px; z-index:5; text-shadow: 1px 1px 5px #000; pointer-events:none; }
+        .nav { position:fixed; bottom:0; width:100%; height:60px; background:rgba(0,0,0,0.9); display:flex; justify-content:space-around; align-items:center; border-top:1px solid #222; z-index:100; }
+        
+        .big-heart { position:absolute; top:50%; left:50%; transform:translate(-50%, -50%) scale(0); color:white; font-size:80px; transition: 0.3s; pointer-events:none; z-index:20; opacity:0.8; }
+        .animate-heart { transform:translate(-50%, -50%) scale(1.5); }
     </style>
 </head>
 <body>
-
-    <div class="reels-container" id="reels-wrapper"></div>
-    <div class="overlay" id="overlay" onclick="window.closeComments()"></div>
-
-    <div id="comment-modal">
-        <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><strong>Comments</strong><span onclick="window.closeComments()">✖</span></div>
-        <div class="comment-list" id="comment-list"></div>
-        <div style="display:flex; gap:10px;">
-            <input type="text" id="c-input" placeholder="Comment..." style="flex:1; padding:10px; border-radius:20px; border:none; background:#333; color:white;">
-            <button onclick="window.postComment()" style="background:#00f2ea; border:none; padding:0 15px; border-radius:20px; font-weight:bold;">Post</button>
-        </div>
-    </div>
-
-    <div class="nav-bar">
-        <a href="index.html" class="nav-item active">🏠</a>
-        <a href="upload.html" class="nav-item">➕</a>
-        <div onclick="goToMyProfile()" class="nav-item">👤</div>
+    <div class="feed" id="feed"></div>
+    <div class="nav">
+        <a href="index.html" style="text-decoration:none; color:#00f2ea; font-size:25px;">🏠</a>
+        <a href="upload.html" style="text-decoration:none; color:white; font-size:25px;">➕</a>
+        <a href="profile.html" style="text-decoration:none; color:white; font-size:25px;">👤</a>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove, getDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getFirestore, collection, query, orderBy, onSnapshot, doc, updateDoc, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
         const firebaseConfig = { apiKey: "AIzaSyBjnKcmC5ix9A97-mJtX6_I2X5FWOv8uSw", authDomain: "wahidreels-pro.firebaseapp.com", projectId: "wahidreels-pro", storageBucket: "wahidreels-pro.firebasestorage.app", messagingSenderId: "706965907010", appId: "1:706965907010:web:c4aa2f3b807ff7b002efdb" };
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
 
-        let myId = localStorage.getItem("wahid_user_id");
-        let myName = localStorage.getItem("wahid_user_name");
-        let currentReelId = null;
-        window.isGlobalMuted = true;
+        let myId = "";
+        onAuthStateChanged(auth, (user) => { 
+            if (!user) { window.location.href = "auth.html"; } else { myId = user.uid; }
+        });
 
-        // 🔇 Sound Fix (Intersection Observer)
+        // 🎬 Intersection Observer for Sound Control
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 const video = entry.target.querySelector('video');
                 if (entry.isIntersecting) {
-                    video.muted = window.isGlobalMuted;
-                    video.play().catch(() => {});
+                    video.play().catch(() => {}); // Play when visible
+                    video.muted = false;
                 } else {
-                    video.pause();
-                    video.currentTime = 0; // Sound turant stop karne ke liye
+                    video.pause(); // Stop when not visible
+                    video.currentTime = 0;
                 }
             });
-        }, { threshold: 0.8 });
+        }, { threshold: 0.7 });
 
-        window.toggleSound = (v) => {
-            v.muted = !v.muted;
-            window.isGlobalMuted = v.muted;
-        };
-
-        const q = query(collection(db, "reels_data"), orderBy("createdAt", "desc"));
-        onSnapshot(q, (snapshot) => {
-            const wrapper = document.getElementById('reels-wrapper');
-            wrapper.innerHTML = "";
-            snapshot.forEach(reelDoc => {
-                const data = reelDoc.data();
-                const id = reelDoc.id;
-                const likes = data.likes || [];
-                const comments = data.comments || [];
-                const isLiked = myId && likes.includes(myId);
+        // 🎥 Load Reels
+        onSnapshot(query(collection(db, "reels_data"), orderBy("createdAt", "desc")), (snap) => {
+            const feed = document.getElementById('feed');
+            feed.innerHTML = "";
+            snap.forEach(reeldoc => {
+                const d = reeldoc.data();
+                const reelId = reeldoc.id;
+                const isLiked = d.likes && d.likes.includes(myId);
+                const likeCount = d.likes ? d.likes.length : 0;
 
                 const reelDiv = document.createElement('div');
-                reelDiv.className = 'reel';
+                reelDiv.className = "reel";
                 reelDiv.innerHTML = `
-                    <video loop muted playsinline onclick="window.toggleSound(this)">
-                        <source src="${data.videoUrl}" type="video/mp4">
-                    </video>
+                    <video src="${d.videoUrl}" loop playsinline id="vid-${reelId}" muted></video>
+                    <div class="big-heart" id="heart-${reelId}">❤️</div>
                     <div class="side-bar">
-                        <div class="icon-btn ${isLiked ? 'liked' : ''}" onclick="window.handleLike('${id}', ${isLiked})">
-                            ${isLiked ? '❤️' : '🤍'} <span>${likes.length}</span>
-                        </div>
-                        <div class="icon-btn" onclick="window.openComments('${id}')">💬 <span>${comments.length}</span></div>
+                        <button class="action-btn ${isLiked ? 'liked' : ''}" id="btn-${reelId}" onclick="toggleLike('${reelId}')">
+                            ❤️<span id="count-${reelId}">${likeCount}</span>
+                        </button>
+                        <button class="action-btn">💬<span>0</span></button>
                     </div>
-                    <div class="video-info">
-                        <div class="user-name" onclick="location.href='profile.html?id=${data.userId}'">@${data.userName || 'User'}</div>
-                        <p>${data.caption || ''}</p>
-                    </div>`;
-                wrapper.appendChild(reelDiv);
-                observer.observe(reelDiv);
+                    <div class="overlay"><b>@${d.userName}</b><p>${d.caption}</p></div>
+                `;
+
+                // ✅ Touch Interaction
+                let lastTap = 0;
+                reelDiv.addEventListener('touchstart', (e) => {
+                    const now = Date.now();
+                    const v = document.getElementById(`vid-${reelId}`);
+                    if (now - lastTap < 300) {
+                        showBigHeart(reelId);
+                        if(!btn.classList.contains('liked')) toggleLike(reelId);
+                    } else {
+                        v.paused ? v.play() : v.pause();
+                    }
+                    lastTap = now;
+                });
+
+                feed.appendChild(reelDiv);
+                observer.observe(reelDiv); // Attach sound controller
             });
         });
 
-        window.handleLike = async (id, alreadyLiked) => {
-            if (!myId) return alert("Pehle login kijiye!");
-            await updateDoc(doc(db, "reels_data", id), {
-                likes: alreadyLiked ? arrayRemove(myId) : arrayUnion(myId)
-            });
+        // ❤️ Like Function
+        window.toggleLike = async (id) => {
+            const reelRef = doc(db, "reels_data", id);
+            const btn = document.getElementById(`btn-${id}`);
+            if (btn.classList.contains('liked')) {
+                btn.classList.remove('liked');
+                await updateDoc(reelRef, { likes: arrayRemove(myId) });
+            } else {
+                btn.classList.add('liked');
+                await updateDoc(reelRef, { likes: arrayUnion(myId) });
+            }
         };
 
-        window.openComments = async (id) => {
-            currentReelId = id;
-            document.getElementById('comment-modal').classList.add('open');
-            document.getElementById('overlay').style.display = 'block';
-            const list = document.getElementById('comment-list');
-            list.innerHTML = "Loading...";
-            const snap = await getDoc(doc(db, "reels_data", id));
-            const comments = snap.data().comments || [];
-            list.innerHTML = "";
-            comments.forEach(c => { list.innerHTML += `<div style="margin-bottom:10px;"><b>${c.user}:</b> ${c.text}</div>`; });
-        };
-
-        window.postComment = async () => {
-            const input = document.getElementById('c-input');
-            if(!input.value || !myId) return alert("Pehle kuch likhein!");
-            await updateDoc(doc(db, "reels_data", currentReelId), {
-                comments: arrayUnion({ user: myName, text: input.value, time: Date.now() })
-            });
-            input.value = "";
-            window.openComments(currentReelId);
-        };
-
-        window.closeComments = () => {
-            document.getElementById('comment-modal').classList.remove('open');
-            document.getElementById('overlay').style.display = 'none';
-        };
-
-        window.goToMyProfile = () => {
-            if(myId) window.location.href = "profile.html?id=" + myId;
-            else window.location.href = "auth.html";
-        };
+        function showBigHeart(id) {
+            const h = document.getElementById(`heart-${id}`);
+            h.classList.add('animate-heart');
+            setTimeout(() => h.classList.remove('animate-heart'), 800);
+        }
     </script>
 </body>
 </html>
